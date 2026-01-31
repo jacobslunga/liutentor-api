@@ -1,9 +1,16 @@
-interface Exam {}
+export interface Exam {
+  id: number;
+  course_code: string;
+  exam_date: string;
+  pdf_url: string;
+  exam_name: string;
+  has_solution: boolean;
+  statistics?: any;
+  pass_rate?: number;
+}
 
-type ExamReturn = {
+export type ExamReturn = {
   courseCode: string;
   courseName: string;
   exams: Exam[];
 };
-
-export { Exam, ExamReturn };

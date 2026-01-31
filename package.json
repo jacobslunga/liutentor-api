@@ -1,10 +1,13 @@
 {
   "name": "liutentor-api",
   "scripts": {
-    "dev": "bun run --hot src/index.ts"
+    "dev": "bun run --hot src/app.ts",
+    "test": "bun test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.93.3",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.36.1",
     "hono": "^4.11.7"
   },
   "devDependencies": {
