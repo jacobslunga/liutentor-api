@@ -1,11 +1,18 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { cors } from "hono/cors";
 import { supabaseMiddleware } from "~/db/supabase";
 import exams from "~/api/v1/exams.routes";
 import { fail } from "~/utils/response";
 import { rateLimit } from "~/middleware/ratelimit";
 
 const app = new Hono().basePath("/api");
+
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "https://liutentor.se"],
+  })
+);
 
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
