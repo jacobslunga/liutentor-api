@@ -214,7 +214,7 @@ Returns a single exam by ID with its solution if available.
 | ------------ | ------- | -------------------- |
 | id           | integer | Primary key          |
 | exam_id      | integer | Foreign key to exams |
-| solution_url | text    | URL to solution PDF  |
+| pdf_url | text    | URL to solution PDF  |
 
 ### exam_stats table
 
