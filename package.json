@@ -2,6 +2,7 @@
   "name": "liutentor-api",
   "scripts": {
     "dev": "bun run --hot src/app.ts",
+    "start": "bun run src/app.ts",
     "test": "bun test"
   },
   "dependencies": {
