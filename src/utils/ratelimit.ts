@@ -22,3 +22,10 @@ export const ratelimit = new Ratelimit({
   limiter: Ratelimit.slidingWindow(200, "1 m"),
   analytics: true,
 });
+
+export const chatRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, "1 m"),
+  analytics: true,
+  prefix: "@upstash/ratelimit/chat",
+});
