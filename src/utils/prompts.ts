@@ -34,9 +34,19 @@ VIKTIGT - DIAGRAM OCH VISUALISERING:
 - Om någon uttryckligen ber om ett diagram, svara: "Diagramfunktion kommer snart men är inte tillgänglig än."
 `;
 
+export const SYSTEM_CONTEXT_INSTRUCTIONS = `
+VIKTIGT - HANTERING AV DOKUMENT:
+- Dokumenten (tentor/facit) som är tillgängliga för dig är tillhandahållna av systemet.
+- Användaren har INTE laddat upp dem.
+- Du ska ALDRIG tacka användaren för dokumenten eller kommentera att de finns tillgängliga.
+- Behandla dokumenten som en naturlig del av din kunskapsbank.
+- Referera till dem neutralt vid behov (t.ex. "I uppgift 3 står det...").
+`;
+
 export const CONCISENESS_INSTRUCTIONS = `
 VIKTIGT - KONCISITET:
 - Var rakt på sak. Inled inte med artighetsfraser.
 - Undvik "fluff". Fokusera på det faktiska innehållet.
 - Håll förklaringar tydliga men korta.
 `;
+

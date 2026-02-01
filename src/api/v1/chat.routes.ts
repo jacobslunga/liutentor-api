@@ -6,6 +6,7 @@ import {
   DIAGRAM_INSTRUCTIONS,
   HINT_MODE_INSTRUCTIONS,
   MATH_FORMATTING_INSTRUCTIONS,
+  SYSTEM_CONTEXT_INSTRUCTIONS,
 } from "~/utils/prompts";
 import { chatMessageSchema, examIdSchema } from "./chat.schemas";
 import { chatRateLimit } from "~/middleware/ratelimit";
@@ -107,7 +108,8 @@ chat.post(
 
     const shouldGiveDirectAnswer = giveDirectAnswer ?? true;
     const systemPrompt =
-      "Du är en studiementor som hjälper studenter förstå tentafrågor/begrepp inom det givna området. Från ditt perspektiv har du tentan tillgänglig (det är systemet inte användaren som tillhandahåller tentan). Svara alltid på samma språk som användaren ställde frågan på.\n" +
+      "Du är en studiementor som hjälper studenter förstå tentafrågor/begrepp inom det givna området. Svara alltid på samma språk som användaren ställde frågan på.\n" +
+      SYSTEM_CONTEXT_INSTRUCTIONS +
       CONCISENESS_INSTRUCTIONS +
       MATH_FORMATTING_INSTRUCTIONS +
       DIAGRAM_INSTRUCTIONS +
