@@ -1,12 +1,12 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getCachedFileUri } from "~/utils/google-file-manager";
 import {
-  DIRECT_MODE_INSTRUCTIONS,
-  CONCISENESS_INSTRUCTIONS,
-  DIAGRAM_INSTRUCTIONS,
-  HINT_MODE_INSTRUCTIONS,
-  MATH_FORMATTING_INSTRUCTIONS,
-  SYSTEM_CONTEXT_INSTRUCTIONS,
+  MATH_FORMATTING,
+  CONCISE,
+  DIRECT_MODE,
+  HINT_MODE,
+  NO_DIAGRAMS,
+  SYSTEM_CTX
 } from "~/utils/prompts";
 import { chatMessageSchema, examIdSchema } from "./chat.schemas";
 import { chatRateLimit } from "~/middleware/ratelimit";
@@ -107,16 +107,13 @@ chat.post(
     ]);
 
     const shouldGiveDirectAnswer = giveDirectAnswer ?? true;
-    const systemPrompt =
-      "Du är en studiementor som hjälper studenter förstå tentafrågor/begrepp inom det givna området. Svara alltid på samma språk som användaren ställde frågan på.\n" +
-      SYSTEM_CONTEXT_INSTRUCTIONS +
-      CONCISENESS_INSTRUCTIONS +
-      MATH_FORMATTING_INSTRUCTIONS +
-      DIAGRAM_INSTRUCTIONS +
-      "\n\n" +
-      (shouldGiveDirectAnswer
-        ? DIRECT_MODE_INSTRUCTIONS
-        : HINT_MODE_INSTRUCTIONS);
+    const systemPrompt = [
+      SYSTEM_CTX,
+      CONCISE,
+      MATH_FORMATTING,
+      NO_DIAGRAMS,
+      shouldGiveDirectAnswer ? DIRECT_MODE : HINT_MODE
+    ].join("\n");
 
     logMemory("BEFORE_AI_STREAM");
 
@@ -126,8 +123,8 @@ chat.post(
       role: m.role === "assistant" ? "model" : "user",
       parts: Array.isArray(m.content)
         ? m.content.map((c: any) =>
-            c.type === "text" ? { text: c.text } : { text: "" },
-          )
+          c.type === "text" ? { text: c.text } : { text: "" },
+        )
         : [{ text: m.content }],
     }));
 
