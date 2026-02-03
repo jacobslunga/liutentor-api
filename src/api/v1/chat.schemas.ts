@@ -35,8 +35,8 @@ export const chatMessageSchema = z.object({
     .describe(
       "Whether to give direct answers or challenge the student to think"
     ),
-  examUrl: z.string().url(),
-  solutionUrl: z.string().url().optional(),
+  examUrl: z.url(),
+  solutionUrl: z.url().optional(),
   courseCode: z.string(),
   isFirstMessage: z.boolean().optional(),
   modelId: z.string().optional(),
