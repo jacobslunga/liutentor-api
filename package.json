@@ -3,8 +3,7 @@
   "scripts": {
     "dev": "bun run --hot src/app.ts",
     "start": "bun run src/app.ts",
-    "test": "bun test",
-    "build": "bun build"
+    "test": "bun test"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.20",
