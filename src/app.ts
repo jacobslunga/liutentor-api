@@ -3,9 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import { cors } from "hono/cors";
 import { supabaseMiddleware } from "~/db/supabase";
 import exams from "~/api/v1/exams.routes";
-import chat from "~/api/v1/chat.routes";
 import { fail } from "~/utils/response";
-import { rateLimit } from "~/middleware/ratelimit";
 
 const app = new Hono().basePath("/api");
 
@@ -26,13 +24,10 @@ app.onError((err, c) => {
 });
 
 app.use(supabaseMiddleware);
-app.use("/v1/exams/*", rateLimit);
 
 app.route("/", exams);
-app.route("/", chat);
 
 export default {
   port: process.env.PORT || 3000,
   fetch: app.fetch,
-  idleTimeout: 120,
 };
