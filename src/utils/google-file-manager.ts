@@ -1,27 +1,27 @@
-import { GoogleAIFileManager } from "@google/generative-ai/server";
-import { supabase } from "~/db/supabase";
-import { unlinkSync } from "node:fs";
+import { GoogleAIFileManager } from '@google/generative-ai/server';
+import { supabase } from '~/db/supabase';
+import { unlinkSync } from 'node:fs';
 
 const fileManager = new GoogleAIFileManager(
-  process.env.GOOGLE_GENERATIVE_AI_API_KEY || "",
+  process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',
 );
 
 export async function getCachedFileUri(
-  type: "exam" | "solution",
+  type: 'exam' | 'solution',
   identifierId: string,
   pdfUrl: string,
 ): Promise<string> {
-  let tableName = type === "exam" ? "exams" : "solutions";
+  let tableName = type === 'exam' ? 'exams' : 'solutions';
 
   let query = supabase
     .from(tableName)
-    .select("id, google_file_uri, google_file_expires_at, pdf_url");
+    .select('id, google_file_uri, google_file_expires_at, pdf_url');
 
-  if (type === "exam") {
-    query = query.eq("id", identifierId);
+  if (type === 'exam') {
+    query = query.eq('id', identifierId);
   } else {
     // Note: Assuming 'solutions' table has 'exam_id' column based on user code
-    query = query.eq("exam_id", identifierId).eq("pdf_url", pdfUrl);
+    query = query.eq('exam_id', identifierId).eq('pdf_url', pdfUrl);
   }
 
   const { data: rows, error: fetchError } = await query;
@@ -37,7 +37,7 @@ export async function getCachedFileUri(
 
   const record = rows[0];
   const now = new Date();
-  
+
   if (record.google_file_uri && record.google_file_expires_at) {
     const expiresAt = new Date(record.google_file_expires_at);
     const validUntil = new Date(now.getTime() + 5 * 60000);
@@ -58,7 +58,7 @@ export async function getCachedFileUri(
     await Bun.write(tempPath, arrayBuffer);
 
     const uploadResult = await fileManager.uploadFile(tempPath, {
-      mimeType: "application/pdf",
+      mimeType: 'application/pdf',
       displayName: `${type.toUpperCase()} - ${identifierId}`,
     });
 
@@ -74,7 +74,7 @@ export async function getCachedFileUri(
         google_file_uri: uploadResult.file.uri,
         google_file_expires_at: uploadResult.file.expirationTime,
       })
-      .eq("id", record.id);
+      .eq('id', record.id);
 
     if (updateError) {
       console.error(`[CACHE:${type}] DB Write Failed`, updateError);
