@@ -15,11 +15,11 @@ const ai = new GoogleGenAI({
 
 const getGoogleModelId = (modelId: string) => {
   const map: Record<string, string> = {
-    'gemini-2.5-pro': 'gemini-2.5-pro',
-    'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
-    'gemini-3.1-flash-lite': 'gemini-3.1-flash-lite-preview',
+    'gemini-2.5-pro': 'gemini-2.5-flash-lite',
+    'gemini-3.1-pro-preview': 'gemini-2.5-pro',
+    'gemini-3.1-flash-lite': 'gemini-2.5-flash',
   };
-  return map[modelId] || 'gemini-2.5-pro';
+  return map[modelId] || 'gemini-2.5-flash-lite';
 };
 
 function logToDBAsync(payload: any) {
