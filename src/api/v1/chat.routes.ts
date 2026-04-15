@@ -24,10 +24,6 @@ const MODEL_MAP: Record<string, ModelConfig> = {
   "gemini-2.5-pro": { provider: "google", modelId: "gemini-2.5-flash" },
   "gemini-3.1-pro-preview": { provider: "google", modelId: "gemini-2.5-pro" },
   "gemini-3.1-flash-lite": { provider: "google", modelId: "gemini-2.5-flash" },
-  "claude-haiku": {
-    provider: "anthropic",
-    modelId: "claude-haiku-4-5-20251001",
-  },
 };
 
 const getModelConfig = (modelId: string): ModelConfig =>
@@ -136,14 +132,17 @@ async function* streamAnthropicResponse(
     cache_control: { type: "ephemeral" },
   }));
 
-  const anthropicMessages = [
-    ...(pdfBlocks.length > 0 ? [{ role: "user", content: pdfBlocks }] : []),
-    ...messages.slice(0, -1).map((msg: any) => ({
-      role: msg.role === "assistant" ? "assistant" : "user",
-      content: extractTextContent(msg.content),
-    })),
-    { role: "user", content: lastMsgText },
-  ];
+  const historyMessages = messages.slice(0, -1).map((msg: any) => ({
+    role: msg.role === "assistant" ? "assistant" : "user",
+    content: extractTextContent(msg.content),
+  }));
+
+  const lastMessage = {
+    role: "user" as const,
+    content: [...pdfBlocks, { type: "text", text: lastMsgText }],
+  };
+
+  const anthropicMessages = [...historyMessages, lastMessage];
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -163,7 +162,10 @@ async function* streamAnthropicResponse(
   });
 
   if (!response.ok) {
-    throw new Error(`Anthropic API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    throw new Error(
+      `Anthropic API error: ${response.statusText} — ${errorBody}`,
+    );
   }
 
   const reader = response.body!.getReader();

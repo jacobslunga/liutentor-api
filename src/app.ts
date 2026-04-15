@@ -8,18 +8,24 @@ import quiz from "~/api/v1/quiz.route";
 import { fail } from "~/utils/response";
 
 const WINDOW_MS = 60_000; // 1 minute
-const MAX_REQUESTS = 60;  // per IP per window
+const MAX_REQUESTS = 60; // per IP per window
 
-const rateLimitStore = new LRUCache<string, { count: number; resetAt: number }>({
-  max: 10_000,
-  ttl: WINDOW_MS,
-});
+const rateLimitStore = new LRUCache<string, { count: number; resetAt: number }>(
+  {
+    max: 10_000,
+    ttl: WINDOW_MS,
+  },
+);
 
 const app = new Hono().basePath("/api");
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:3000", "https://liutentor.se"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "https://liutentor.se",
+    ],
   }),
 );
 
@@ -63,7 +69,7 @@ app.route("/", chat);
 app.route("/", quiz);
 
 export default {
-  port: process.env.PORT || 3000,
+  port: process.env.PORT || 3001,
   fetch: app.fetch,
   idleTimeout: 120,
 };
