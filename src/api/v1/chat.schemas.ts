@@ -21,10 +21,10 @@ export const chatMessageSchema = z.object({
                 data: z.any(),
                 mediaType: z.string(),
               }),
-            ])
+            ]),
           ),
         ]),
-      })
+      }),
     )
     .min(1, "At least one message is required")
     .max(100, "Too many messages in conversation"),
@@ -33,13 +33,15 @@ export const chatMessageSchema = z.object({
     .optional()
     .default(true)
     .describe(
-      "Whether to give direct answers or challenge the student to think"
+      "Whether to give direct answers or challenge the student to think",
     ),
   examUrl: z.url(),
   solutionUrl: z.url().optional(),
   courseCode: z.string(),
   isFirstMessage: z.boolean().optional(),
   modelId: z.string().optional(),
+  conversationId: z.uuid().optional().nullable(),
+  userId: z.uuid().optional().nullable(),
 });
 
 /**

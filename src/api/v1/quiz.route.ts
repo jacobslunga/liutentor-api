@@ -15,7 +15,7 @@ import {
 } from "./quiz.schemas";
 import { QUIZ_MULTIPLE_CHOICE_PROMPT } from "~/utils/prompts";
 import { rebalanceQuizAnswerDistribution } from "./quiz.utils";
-import { insertQuizIfNotDuplicate } from "./quiz.cache";
+import { logQuizGeneration } from "./quiz.cache";
 
 const quiz = new Hono().basePath("/v1/quiz");
 
@@ -36,6 +36,7 @@ const multipleChoiceBodySchema = z.object({
     .max(300, "Custom prompt must be 300 characters or less")
     .trim()
     .optional(),
+  userId: z.uuid().optional(),
 });
 
 const QUIZ_JSON_INSTRUCTION = `
@@ -179,7 +180,7 @@ quiz.post(
   timeout(120000),
   async (c) => {
     const { courseCode } = c.req.valid("param");
-    const { examIds, customPrompt } = c.req.valid("json");
+    const { examIds, customPrompt, userId } = c.req.valid("json");
     const anonymousUserId = c.req.header("x-anonymous-user-id") || "unknown";
 
     if (!process.env.OPENAI_API_KEY) {
@@ -284,7 +285,8 @@ quiz.post(
 
         const sourceExamIds = validExams.map((x) => x.id);
 
-        insertQuizIfNotDuplicate({
+        logQuizGeneration({
+          user_id: userId || null,
           anonymous_user_id: anonymousUserId,
           course_code: courseCode,
           quiz_type: "multiple_choice",
