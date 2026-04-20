@@ -8,17 +8,13 @@ import { HTTPException } from "hono/http-exception";
 import { stream } from "hono/streaming";
 import { supabase } from "~/db/supabase";
 import { PdfData } from "~/utils/chat.utils";
-import {
-  streamAnthropicResponse,
-  streamGoogleResponse,
-  streamOpenAIResponse,
-} from "~/utils/chat.utils";
+import { streamGoogleResponse, streamOpenAIResponse } from "~/utils/chat.utils";
 import {
   getAuthenticatedUserId,
   assertConversationOwnership,
 } from "~/utils/auth";
 
-type Provider = "google" | "anthropic" | "openai";
+type Provider = "google" | "openai";
 
 interface ModelConfig {
   provider: Provider;
@@ -154,29 +150,21 @@ chat.post(
     const systemPrompt = [SYSTEM_PROMPT].filter(Boolean).join("\n");
 
     const responseStream =
-      provider === "anthropic"
-        ? streamAnthropicResponse(
+      provider === "openai"
+        ? streamOpenAIResponse(
             systemPrompt,
             messages,
             resolvedModelId,
             pdfs,
             lastMsgText,
           )
-        : provider === "openai"
-          ? streamOpenAIResponse(
-              systemPrompt,
-              messages,
-              resolvedModelId,
-              pdfs,
-              lastMsgText,
-            )
-          : streamGoogleResponse(
-              systemPrompt,
-              messages,
-              resolvedModelId,
-              pdfs,
-              lastMsgText,
-            );
+        : streamGoogleResponse(
+            systemPrompt,
+            messages,
+            resolvedModelId,
+            pdfs,
+            lastMsgText,
+          );
 
     return stream(c, async (s) => {
       c.header("Content-Type", "text/plain; charset=utf-8");

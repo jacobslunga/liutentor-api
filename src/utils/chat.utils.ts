@@ -70,80 +70,6 @@ async function* streamGoogleResponse(
   }
 }
 
-async function* streamAnthropicResponse(
-  systemPrompt: string,
-  messages: any[],
-  modelId: string,
-  pdfs: PdfData[],
-  lastMsgText: string,
-): AsyncGenerator<string> {
-  const pdfBlocks = pdfs.map((pdf) => ({
-    type: "document",
-    source: { type: "base64", media_type: pdf.mimeType, data: pdf.data },
-    cache_control: { type: "ephemeral" },
-  }));
-
-  const historyMessages = messages.slice(0, -1).map((msg: any) => ({
-    role: msg.role === "assistant" ? "assistant" : "user",
-    content: extractTextContent(msg.content),
-  }));
-
-  const lastMessage = {
-    role: "user" as const,
-    content: [...pdfBlocks, { type: "text", text: lastMsgText }],
-  };
-
-  const anthropicMessages = [...historyMessages, lastMessage];
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY || "",
-      "anthropic-version": "2023-06-01",
-      "anthropic-beta": "prompt-caching-2024-07-31",
-    },
-    body: JSON.stringify({
-      model: modelId,
-      max_tokens: 8096,
-      system: systemPrompt,
-      messages: anthropicMessages,
-      stream: true,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(
-      `Anthropic API error: ${response.statusText} — ${errorBody}`,
-    );
-  }
-
-  const reader = response.body!.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const raw = line.slice(6).trim();
-      if (raw === "[DONE]") return;
-      try {
-        const parsed = JSON.parse(raw);
-        const text = parsed?.delta?.text;
-        if (text) yield text;
-      } catch {}
-    }
-  }
-}
-
 async function* streamOpenAIResponse(
   systemPrompt: string,
   messages: any[],
@@ -153,8 +79,8 @@ async function* streamOpenAIResponse(
 ): AsyncGenerator<string> {
   const pdfContents = pdfs.map((pdf) => ({
     type: "input_file" as const,
-    filename: "exam.pdf",
-    file_data: `data:application/pdf;base64,${pdf.data}`,
+    filename: "document.pdf",
+    file_data: `data:${pdf.mimeType};base64,${pdf.data}`,
   }));
 
   const historyMessages = messages.slice(0, -1).map((msg: any) => ({
@@ -188,7 +114,6 @@ async function* streamOpenAIResponse(
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error(`OpenAI API error ${response.status}:`, errorBody);
     throw new Error(`OpenAI API error: ${response.statusText} — ${errorBody}`);
   }
 
@@ -219,4 +144,4 @@ async function* streamOpenAIResponse(
   }
 }
 
-export { streamAnthropicResponse, streamGoogleResponse, streamOpenAIResponse };
+export { streamGoogleResponse, streamOpenAIResponse };
