@@ -6,8 +6,6 @@ export interface PdfData {
   label: "tenta" | "facit";
 }
 
-const OPENAI_MAX_OUTPUT_TOKENS = 1024;
-
 function extractTextContent(content: unknown): string {
   if (Array.isArray(content)) {
     const textPart = content.find(
@@ -122,7 +120,6 @@ async function* streamOpenAIResponse(
       stream: true,
       instructions: systemPrompt,
       input: [...historyMessages, lastMessage],
-      max_output_tokens: OPENAI_MAX_OUTPUT_TOKENS,
     }),
   });
 
