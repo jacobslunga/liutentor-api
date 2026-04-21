@@ -7,8 +7,11 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { stream } from "hono/streaming";
 import { supabase } from "~/db/supabase";
-import { PdfData } from "~/utils/chat.utils";
-import { streamGoogleResponse, streamOpenAIResponse } from "~/utils/chat.utils";
+import {
+  streamGoogleResponse,
+  streamOpenAIResponse,
+  PdfData,
+} from "~/utils/chat.utils";
 import {
   getAuthenticatedUserId,
   assertConversationOwnership,
@@ -22,16 +25,18 @@ interface ModelConfig {
 }
 
 const MODEL_MAP: Record<string, ModelConfig> = {
-  "gemini-2.5-pro": { provider: "google", modelId: "gemini-2.5-flash" },
-  "gemini-3.1-pro-preview": { provider: "google", modelId: "gemini-2.5-pro" },
-  "gemini-3.1-flash-lite": { provider: "google", modelId: "gemini-2.5-flash" },
-  "gpt-4.1": { provider: "openai", modelId: "gpt-4.1" },
-  "gpt-4.1-mini": { provider: "openai", modelId: "gpt-4.1-mini" },
-  "gpt-4o": { provider: "openai", modelId: "gpt-4o" },
+  "gemini-3.1-flash-lite-preview": {
+    provider: "google",
+    modelId: "gemini-3.1-flash-lite-preview",
+  },
+  "gpt-5-nano": { provider: "openai", modelId: "gpt-5-nano" },
 };
 
 const getModelConfig = (modelId: string): ModelConfig =>
-  MODEL_MAP[modelId] ?? { provider: "google", modelId: "gemini-2.5-pro" };
+  MODEL_MAP[modelId] ?? {
+    provider: "google",
+    modelId: "gemini-3.1-flash-lite-preview",
+  };
 
 function extractTextContent(content: unknown): string {
   if (Array.isArray(content)) {
@@ -85,7 +90,7 @@ chat.post(
       solutionUrl,
       courseCode,
       conversationId,
-      modelId = "gemini-2.5-pro",
+      modelId = "gemini-3.1-flash-lite-preview",
     } = body as any;
 
     if (!examUrl || !messages?.length) {
@@ -140,14 +145,23 @@ chat.post(
       solutionUrl ? fetchPdfAsBase64(solutionUrl) : Promise.resolve(null),
     ]);
 
-    const pdfs: PdfData[] = [
-      examBase64 ? { data: examBase64, mimeType: "application/pdf" } : null,
-      solutionBase64
-        ? { data: solutionBase64, mimeType: "application/pdf" }
-        : null,
-    ].filter(Boolean) as PdfData[];
+    const pdfs: PdfData[] = [];
+    if (examBase64) {
+      pdfs.push({
+        data: examBase64,
+        mimeType: "application/pdf",
+        label: "tenta",
+      });
+    }
+    if (solutionBase64) {
+      pdfs.push({
+        data: solutionBase64,
+        mimeType: "application/pdf",
+        label: "facit",
+      });
+    }
 
-    const systemPrompt = [SYSTEM_PROMPT].filter(Boolean).join("\n");
+    const systemPrompt = SYSTEM_PROMPT;
 
     const responseStream =
       provider === "openai"

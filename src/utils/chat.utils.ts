@@ -3,7 +3,10 @@ import { GoogleGenAI } from "@google/genai";
 export interface PdfData {
   data: string;
   mimeType: "application/pdf";
+  label: "tenta" | "facit";
 }
+
+const OPENAI_MAX_OUTPUT_TOKENS = 1024;
 
 function extractTextContent(content: unknown): string {
   if (Array.isArray(content)) {
@@ -13,6 +16,12 @@ function extractTextContent(content: unknown): string {
     return textPart?.text || "";
   }
   return typeof content === "string" ? content : "";
+}
+
+function getPdfLabelText(label: "tenta" | "facit"): string {
+  return label === "tenta"
+    ? "FÖLJANDE PDF ÄR TENTAN MED UPPGIFTERNA DU SKA LÖSA:"
+    : "FÖLJANDE PDF ÄR FACIT — ANVÄND ENDAST FÖR VERIFIERING, HÄRLED ALLTID LÖSNINGEN SJÄLV:";
 }
 
 const googleAI = new GoogleGenAI({
@@ -50,9 +59,10 @@ async function* streamGoogleResponse(
     })
     .filter((msg: any) => Array.isArray(msg.parts) && msg.parts.length > 0);
 
-  const pdfParts = pdfs.map((pdf) => ({
-    inlineData: { data: pdf.data, mimeType: pdf.mimeType },
-  }));
+  const pdfParts = pdfs.flatMap((pdf) => [
+    { text: getPdfLabelText(pdf.label) },
+    { inlineData: { data: pdf.data, mimeType: pdf.mimeType } },
+  ]);
 
   const result = await googleAI.models.generateContentStream({
     model: modelId,
@@ -77,11 +87,14 @@ async function* streamOpenAIResponse(
   pdfs: PdfData[],
   lastMsgText: string,
 ): AsyncGenerator<string> {
-  const pdfContents = pdfs.map((pdf) => ({
-    type: "input_file" as const,
-    filename: "document.pdf",
-    file_data: `data:${pdf.mimeType};base64,${pdf.data}`,
-  }));
+  const pdfContents = pdfs.flatMap((pdf) => [
+    { type: "input_text" as const, text: getPdfLabelText(pdf.label) },
+    {
+      type: "input_file" as const,
+      filename: pdf.label === "tenta" ? "tenta.pdf" : "facit.pdf",
+      file_data: `data:${pdf.mimeType};base64,${pdf.data}`,
+    },
+  ]);
 
   const historyMessages = messages.slice(0, -1).map((msg: any) => ({
     role: (msg.role === "assistant" ? "assistant" : "user") as
@@ -109,6 +122,7 @@ async function* streamOpenAIResponse(
       stream: true,
       instructions: systemPrompt,
       input: [...historyMessages, lastMessage],
+      max_output_tokens: OPENAI_MAX_OUTPUT_TOKENS,
     }),
   });
 
@@ -124,11 +138,9 @@ async function* streamOpenAIResponse(
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
-
     for (const line of lines) {
       if (!line.startsWith("data: ")) continue;
       const raw = line.slice(6).trim();
