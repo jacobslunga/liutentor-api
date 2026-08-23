@@ -10,13 +10,11 @@ import { HTTPException } from "hono/http-exception";
 import { stream } from "hono/streaming";
 import { supabase } from "~/db/supabase";
 import {
-  streamAnthropicResponse,
   streamGeminiResponse,
-  streamOpenAIResponse,
   PdfData,
   ChatStreamEvent,
 } from "~/utils/chat.utils";
-import { getModelConfig } from "./chat.models";
+import { getModelConfig, getModelLogId } from "./chat.models";
 import { fetchPdfAsBase64 } from "~/utils/pdf.cache";
 import { rateLimitByIdentity } from "~/utils/rate.limit";
 import {
@@ -126,12 +124,15 @@ chat.post(
       await assertConversationOwnership(conversationId, userId);
     }
 
+    const modelConfig = getModelConfig(modelId);
     const {
       provider,
       modelId: resolvedModelId,
+      thinkingLevel,
       requiresAuth,
       supportsWebSearch,
-    } = getModelConfig(modelId);
+    } = modelConfig;
+    const modelLogId = getModelLogId(modelConfig);
 
     const webSearch = !!requestedWebSearch && !!supportsWebSearch;
 
@@ -153,7 +154,7 @@ chat.post(
       exam_id: examId,
       role: "user",
       content: lastMsgText,
-      model: resolvedModelId,
+      model: modelLogId,
       // Turns hur frågan ställdes till något admin kan läsa. `webSearch` är den
       // effektiva flaggan, efter modellgatingen på raden ovan — inte det klienten
       // bad om, eftersom det är den förra som faktiskt formade svaret.
@@ -175,7 +176,7 @@ chat.post(
       `${cyan}┌─ CHAT REQUEST ${"─".repeat(35)}\n` +
         `│${reset}  ${bold}Course${reset}   ${dim}→${reset}  ${courseCode ?? "unknown"}\n` +
         `${cyan}│${reset}  ${bold}Exam ID${reset}  ${dim}→${reset}  ${examId}\n` +
-        `${cyan}│${reset}  ${bold}Model${reset}    ${dim}→${reset}  ${resolvedModelId}  ${dim}(${provider})${reset}\n` +
+        `${cyan}│${reset}  ${bold}Model${reset}    ${dim}→${reset}  ${resolvedModelId}  ${dim}(${provider}, ${thinkingLevel})${reset}\n` +
         `${cyan}│${reset}  ${bold}Messages${reset} ${dim}→${reset}  ${messages.length}\n` +
         `${cyan}│${reset}  ${bold}Facit${reset}    ${dim}→${reset}  ${solutionUrl ? "yes" : "no"}\n` +
         `${cyan}│${reset}  ${bold}Files${reset}    ${dim}→${reset}  ${userAttachments.length}\n` +
@@ -211,40 +212,18 @@ chat.post(
 
     const cacheKey = `${examUrl}:${solutionUrl || ""}`;
 
-    const responseStream =
-      provider === "google"
-        ? streamGeminiResponse(
-            systemPrompt,
-            messages,
-            resolvedModelId,
-            pdfs,
-            userAttachments,
-            modelLastMsgText,
-            selectionContext,
-            cacheKey,
-            webSearch,
-          )
-        : provider === "anthropic"
-          ? streamAnthropicResponse(
-              systemPrompt,
-              messages,
-              resolvedModelId,
-              pdfs,
-              userAttachments,
-              modelLastMsgText,
-              selectionContext,
-            )
-          : streamOpenAIResponse(
-              systemPrompt,
-              messages,
-              resolvedModelId,
-              pdfs,
-              userAttachments,
-              modelLastMsgText,
-              selectionContext,
-              cacheKey,
-              webSearch,
-            );
+    const responseStream = streamGeminiResponse(
+      systemPrompt,
+      messages,
+      resolvedModelId,
+      pdfs,
+      userAttachments,
+      modelLastMsgText,
+      selectionContext,
+      cacheKey,
+      webSearch,
+      thinkingLevel,
+    );
 
     // Status and source events need a frame to travel in, but a browser holding a
     // cached bundle still speaks the old concatenate-the-bytes protocol. Serving
@@ -315,7 +294,7 @@ chat.post(
         exam_id: examId,
         role: "assistant",
         content: fullResponse,
-        model: resolvedModelId,
+        model: modelLogId,
       });
     });
   },
