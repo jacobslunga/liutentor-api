@@ -1,4 +1,5 @@
 import { SYSTEM_PROMPT, WEB_SEARCH_PROMPT } from "~/utils/prompts";
+import { SKILL_PROMPTS } from "~/utils/skills";
 import { chatMessageSchema, examIdSchema } from "./chat.schemas";
 import { validateChatAttachments } from "./chat.attachments";
 import { bodyLimit } from "hono/body-limit";
@@ -106,6 +107,7 @@ chat.post(
       modelId,
       selectionContext,
       webSearch: requestedWebSearch,
+      skill,
     } = body;
 
     if (!examUrl || !messages?.length) {
@@ -192,9 +194,10 @@ chat.post(
       });
     }
 
-    const systemPrompt = webSearch
-      ? SYSTEM_PROMPT + WEB_SEARCH_PROMPT
-      : SYSTEM_PROMPT;
+    // Additivt, så att webbsökning och en vald färdighet kan gälla samtidigt.
+    let systemPrompt = SYSTEM_PROMPT;
+    if (webSearch) systemPrompt += WEB_SEARCH_PROMPT;
+    if (skill && SKILL_PROMPTS[skill]) systemPrompt += SKILL_PROMPTS[skill];
 
     const modelLastMsgText =
       lastMsgText.trim() ||

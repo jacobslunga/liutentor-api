@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SKILL_IDS } from "~/utils/skills";
 
 /**
  * Schema for chat messages
@@ -36,6 +37,7 @@ export const chatMessageSchema = z.object({
   conversationId: z.uuid().optional().nullable(),
   selectionContext: z.string().max(2000).optional(),
   webSearch: z.boolean().optional(),
+  skill: z.enum(SKILL_IDS).optional(),
 });
 
 /**
