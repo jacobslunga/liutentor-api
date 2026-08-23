@@ -154,6 +154,12 @@ chat.post(
       role: "user",
       content: lastMsgText,
       model: resolvedModelId,
+      // Turns hur frågan ställdes till något admin kan läsa. `webSearch` är den
+      // effektiva flaggan, efter modellgatingen på raden ovan — inte det klienten
+      // bad om, eftersom det är den förra som faktiskt formade svaret.
+      selection_context: selectionContext || null,
+      skill: skill || null,
+      web_search: webSearch,
     });
 
     const [examBase64, solutionBase64] = await Promise.all([
