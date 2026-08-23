@@ -1,48 +1,63 @@
-export type Provider = "anthropic" | "google" | "openai";
+export type Provider = "google";
+export type ThinkingLevel = "minimal" | "medium" | "high";
 
 export interface ModelConfig {
   provider: Provider;
   modelId: string;
-  /**
-   * Tiers that cost enough to be worth abusing are gated behind a real account.
-   * The UI hides them for signed-out visitors; this flag is what actually
-   * enforces it, since the UI is not a security boundary.
-   */
+  thinkingLevel: ThinkingLevel;
+  /** The deep tier remains protected from anonymous abuse. */
   requiresAuth?: boolean;
-  /**
-   * Web search is opt-in per turn, but a model that cannot search at all should
-   * never be handed the tool. Every live tier supports it today; this keeps a
-   * future one from silently 400-ing when a student has the toggle on.
-   */
+  /** Keep tool support explicit so a future tier cannot silently 400. */
   supportsWebSearch?: boolean;
 }
 
-export const DEFAULT_MODEL_ID = "gpt-5.6-luna";
+export const GEMINI_CHAT_MODEL_ID = "gemini-3.1-flash-lite";
 
-const MODEL_MAP: Record<string, ModelConfig> = {
-  "gemini-3.1-flash-lite": {
-    provider: "google",
-    modelId: "gemini-3.1-flash-lite",
-    supportsWebSearch: true,
-  },
-  "gpt-5.6-luna": {
-    provider: "openai",
-    modelId: "gpt-5.6-luna",
-    supportsWebSearch: true,
-  },
-  "gpt-5.6-terra": {
-    provider: "openai",
-    modelId: "gpt-5.6-terra",
-    requiresAuth: true,
-    supportsWebSearch: true,
-  },
-};
+export const CHAT_TIER_IDS = {
+  low: "gemini-flash-lite-minimal",
+  balanced: "gemini-flash-lite-medium",
+  deep: "gemini-flash-lite-high",
+} as const;
 
-const DEFAULT_MODEL_CONFIG: ModelConfig = {
-  provider: "openai",
-  modelId: DEFAULT_MODEL_ID,
+/** The public selection ID used when a client omits or sends an unknown tier. */
+export const DEFAULT_MODEL_ID = CHAT_TIER_IDS.low;
+
+const LOW_CONFIG: ModelConfig = {
+  provider: "google",
+  modelId: GEMINI_CHAT_MODEL_ID,
+  thinkingLevel: "minimal",
   supportsWebSearch: true,
 };
 
+const BALANCED_CONFIG: ModelConfig = {
+  provider: "google",
+  modelId: GEMINI_CHAT_MODEL_ID,
+  thinkingLevel: "medium",
+  supportsWebSearch: true,
+};
+
+const DEEP_CONFIG: ModelConfig = {
+  provider: "google",
+  modelId: GEMINI_CHAT_MODEL_ID,
+  thinkingLevel: "high",
+  requiresAuth: true,
+  supportsWebSearch: true,
+};
+
+const MODEL_MAP: Record<string, ModelConfig> = {
+  [CHAT_TIER_IDS.low]: LOW_CONFIG,
+  [CHAT_TIER_IDS.balanced]: BALANCED_CONFIG,
+  [CHAT_TIER_IDS.deep]: DEEP_CONFIG,
+
+  // Compatibility aliases let the Hono service deploy before the Nuxt client.
+  // They can be removed after old bundles and v11 cookies have aged out.
+  "gemini-3.1-flash-lite": LOW_CONFIG,
+  "gpt-5.6-luna": BALANCED_CONFIG,
+  "gpt-5.6-terra": DEEP_CONFIG,
+};
+
 export const getModelConfig = (modelId?: string): ModelConfig =>
-  (modelId ? MODEL_MAP[modelId] : undefined) ?? DEFAULT_MODEL_CONFIG;
+  (modelId ? MODEL_MAP[modelId] : undefined) ?? LOW_CONFIG;
+
+export const getModelLogId = (config: ModelConfig): string =>
+  `${config.modelId}:${config.thinkingLevel}`;

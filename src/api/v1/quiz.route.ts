@@ -17,13 +17,13 @@ import { QUIZ_MULTIPLE_CHOICE_PROMPT } from "~/utils/prompts";
 import { rebalanceQuizAnswerDistribution } from "./quiz.utils";
 import { logQuizGeneration } from "./quiz.cache";
 import { getAuthenticatedUserId } from "~/utils/auth";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
-import OpenAI from "openai";
+export const QUIZ_MODEL = "gemini-3.1-flash-lite";
+export const QUIZ_THINKING_LEVEL = "high" as const;
 
-const QUIZ_MODEL = "gpt-5.6-luna";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "",
+const googleAi = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "",
 });
 
 const quiz = new Hono().basePath("/v1/quiz");
@@ -159,43 +159,42 @@ async function getExamSources(courseCode: string, examIds?: number[]) {
   return shuffled.slice(0, takeCount);
 }
 
-async function generateQuizFromOpenAI(
+export async function generateQuizFromGemini(
   pdfs: { data: string; mimeType: string }[],
   promptText: string,
+  client: Pick<GoogleGenAI, "models"> = googleAi,
 ): Promise<MultipleChoiceQuiz> {
-  const response = await openai.responses.create({
+  const response = await client.models.generateContent({
     model: QUIZ_MODEL,
-    input: [
+    contents: [
       {
         role: "user",
-        content: [
-          ...pdfs.map((pdf, index) => ({
-            type: "input_file" as const,
-            filename: `tenta-${index + 1}.pdf`,
-            file_data: `data:${pdf.mimeType};base64,${pdf.data}`,
-          })),
+        parts: [
+          ...pdfs.flatMap((pdf, index) => [
+            { text: `Tentamensunderlag ${index + 1}:` },
+            {
+              inlineData: {
+                mimeType: pdf.mimeType,
+                data: pdf.data,
+              },
+            },
+          ]),
           {
-            type: "input_text" as const,
             text: QUIZ_JSON_INSTRUCTION + "\n\n" + promptText,
           },
         ],
       },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: "multiple_choice_quiz",
-        schema: QUIZ_OUTPUT_SCHEMA,
-        strict: true,
-      },
+    config: {
+      thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+      responseMimeType: "application/json",
+      responseJsonSchema: QUIZ_OUTPUT_SCHEMA,
+      maxOutputTokens: 8000,
     },
-    reasoning: { effort: "low" },
-    max_output_tokens: 8000,
-    store: false,
   });
 
-  const text = response.output_text;
-  if (!text) throw new Error("OpenAI returned empty response");
+  const text = response.text;
+  if (!text) throw new Error("Gemini returned empty response");
 
   return multipleChoiceQuizSchema.parse(JSON.parse(text));
 }
@@ -301,7 +300,7 @@ quiz.post(
           mimeType: "application/pdf" as const,
         }));
 
-        const parsed = await generateQuizFromOpenAI(pdfs, promptText);
+        const parsed = await generateQuizFromGemini(pdfs, promptText);
         const normalizedQuiz = multipleChoiceQuizSchema.parse(
           rebalanceQuizAnswerDistribution(parsed),
         );
@@ -321,7 +320,7 @@ quiz.post(
           quiz: normalizedQuiz,
           source_exam_ids: sourceExamIds,
           source_count: validExams.length,
-          model: QUIZ_MODEL,
+          model: `${QUIZ_MODEL}:${QUIZ_THINKING_LEVEL}`,
         });
 
         await sendEvent("result", {
@@ -330,7 +329,7 @@ quiz.post(
             courseCode,
             sourceExamIds,
             sourceCount: validExams.length,
-            model: QUIZ_MODEL,
+            model: `${QUIZ_MODEL}:${QUIZ_THINKING_LEVEL}`,
           },
         });
       } catch (error: any) {
