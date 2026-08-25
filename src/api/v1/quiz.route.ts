@@ -11,10 +11,18 @@ import { supabase } from "~/db/supabase";
 import {
   courseCodeSchema,
   multipleChoiceQuizSchema,
+  quizDifficultySchema,
+  DEFAULT_QUIZ_DIFFICULTY,
   type MultipleChoiceQuiz,
 } from "./quiz.schemas";
-import { QUIZ_MULTIPLE_CHOICE_PROMPT } from "~/utils/prompts";
-import { rebalanceQuizAnswerDistribution } from "./quiz.utils";
+import {
+  QUIZ_MULTIPLE_CHOICE_PROMPT,
+  QUIZ_DIFFICULTY_PROMPTS,
+} from "~/utils/prompts";
+import {
+  measureCorrectAnswerLengthBias,
+  rebalanceQuizAnswerDistribution,
+} from "./quiz.utils";
 import { logQuizGeneration } from "./quiz.cache";
 import { getAuthenticatedUserId } from "~/utils/auth";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
@@ -39,6 +47,7 @@ const multipleChoiceBodySchema = z.object({
     .max(300, "Custom prompt must be 300 characters or less")
     .trim()
     .optional(),
+  difficulty: quizDifficultySchema.default(DEFAULT_QUIZ_DIFFICULTY),
 });
 
 const QUIZ_JSON_INSTRUCTION = `
@@ -210,7 +219,7 @@ quiz.post(
   timeout(120000),
   async (c) => {
     const { courseCode } = c.req.valid("param");
-    const { examIds, customPrompt } = c.req.valid("json");
+    const { examIds, customPrompt, difficulty } = c.req.valid("json");
     const anonymousUserId = c.req.header("x-anonymous-user-id") || "unknown";
     const userId = await getAuthenticatedUserId(c.req.header("Authorization"));
 
@@ -230,11 +239,13 @@ quiz.post(
       const dim = "\x1b[2m";
       const reset = "\x1b[0m";
       const bold = "\x1b[1m";
+      const yellow = "\x1b[33m";
       console.log(
         `${cyan}┌─ QUIZ REQUEST ${"─".repeat(35)}\n` +
         `│${reset}  ${bold}Course${reset}   ${dim}→${reset}  ${courseCode}\n` +
         `${cyan}│${reset}  ${bold}Model${reset}    ${dim}→${reset}  ${QUIZ_MODEL}\n` +
         `${cyan}│${reset}  ${bold}Exams${reset}    ${dim}→${reset}  ${examIds ? examIds.join(", ") : "random"}\n` +
+        `${cyan}│${reset}  ${bold}Nivå${reset}     ${dim}→${reset}  ${difficulty}\n` +
         `${cyan}│${reset}  ${bold}Custom${reset}   ${dim}→${reset}  ${customPrompt ? `"${customPrompt.slice(0, 40)}${customPrompt.length > 40 ? "…" : ""}"` : "none"}\n` +
         `${cyan}│${reset}  ${bold}User${reset}     ${dim}→${reset}  ${dim}${userId ?? `anon:${anonymousUserId}`}${reset}\n` +
         `${cyan}└${"─".repeat(50)}${reset}`,
@@ -293,6 +304,8 @@ quiz.post(
           promptParts.push(`Användarens instruktioner: ${customPrompt}`);
         }
 
+        promptParts.push(QUIZ_DIFFICULTY_PROMPTS[difficulty]);
+
         const promptText = promptParts.join("\n\n").trim();
 
         const pdfs = validExams.map((exam) => ({
@@ -303,6 +316,20 @@ quiz.post(
         const parsed = await generateQuizFromGemini(pdfs, promptText);
         const normalizedQuiz = multipleChoiceQuizSchema.parse(
           rebalanceQuizAnswerDistribution(parsed),
+        );
+
+        const lengthBias = measureCorrectAnswerLengthBias(normalizedQuiz);
+        const biasLine =
+          `${bold}Längdbias${reset} ${dim}→${reset}  ` +
+          `rätt svar längst i ${lengthBias.longestCount}/${lengthBias.questionCount} ` +
+          `(${Math.round(lengthBias.longestShare * 100)} %, slump ≈ 25 %), ` +
+          `längdkvot ${lengthBias.meanLengthRatio.toFixed(2)}`;
+        // Above ~50 % the correct option is guessable on length alone, which
+        // means the option rules in the prompt did not take for this course.
+        console.log(
+          lengthBias.longestShare > 0.5
+            ? `${yellow}⚠  ${biasLine}${reset}`
+            : `${dim}·${reset}  ${biasLine}`,
         );
 
         await sendEvent("status", {
@@ -321,6 +348,7 @@ quiz.post(
           source_exam_ids: sourceExamIds,
           source_count: validExams.length,
           model: `${QUIZ_MODEL}:${QUIZ_THINKING_LEVEL}`,
+          difficulty,
         });
 
         await sendEvent("result", {
@@ -330,6 +358,7 @@ quiz.post(
             sourceExamIds,
             sourceCount: validExams.length,
             model: `${QUIZ_MODEL}:${QUIZ_THINKING_LEVEL}`,
+            difficulty,
           },
         });
       } catch (error: any) {

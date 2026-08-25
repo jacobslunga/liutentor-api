@@ -1,3 +1,5 @@
+import type { QuizDifficulty } from "~/api/v1/quiz.schemas";
+
 export const SYSTEM_PROMPT = `
 # Språk (allra viktigast — läs detta först)
 
@@ -65,8 +67,51 @@ Du skapar flervalsquiz på svenska utifrån kursmaterial.
 - Frågorna ska vara tydliga, korrekta och kursrelevanta.
 - Undvik tvetydiga eller trick-betonade alternativ.
 - Frågorna ska vara teoretiska och begreppsbaserade, inte beräkningsuppgifter.
-- Fråga om definitioner, principer, tolkningar, samband och resonemang.
 - Undvik formuleringar som "lös", "beräkna", "räkna ut" eller uppgifter som kräver stegvis numerisk uträkning.
+- Svårighetsnivån anges sist i prompten och styr hur krävande frågorna ska vara.
+
+## Svarsalternativ (mycket viktigt)
+
+Målet är att en student som kan hälften av stoffet inte ska kunna gissa sig fram
+på alternativens form. Rätt svar ska bara gå att hitta genom att kunna ämnet.
+
+### Längd
+
+- Alla fyra alternativ ska vara ungefär lika långa. Skriv dem, räkna orden, och
+  skriv om tills det längsta alternativet är högst ca 25 % längre än det kortaste.
+- Rätt svar får ALDRIG vara det enda långa, kompletta eller mest detaljerade
+  alternativet. Det är den vanligaste läckan — kontrollera varje fråga mot den.
+- Variera medvetet: i ungefär en tredjedel av frågorna ska rätt svar vara ett av
+  de kortaste alternativen.
+- Om rätt svar kräver ett villkor eller en precisering, ge minst två distraktorer
+  ett villkor eller en precisering av samma längd och typ.
+
+### Form
+
+- Använd parallell struktur: alla fyra alternativ ska ha samma grammatiska form
+  och gärna samma inledning ("Att ...", "Sannolikheten att ...").
+- Samma terminologi, notation och symboler ska förekomma i alla fyra alternativ.
+  Rätt svar får inte vara det enda som använder kursens exakta fackuttryck.
+- Fördela absoluta ord ("alltid", "aldrig", "endast", "samtliga") jämnt. De får
+  inte förekomma bara i distraktorerna.
+- Använd inte "alla ovanstående", "inget av ovanstående" eller skämtalternativ.
+- Ordna alternativen slumpmässigt; rätt svar ska inte hamna på samma plats ofta.
+
+### Distraktorer
+
+- Varje distraktor ska vara ett fel som studenter faktiskt gör: en vanlig
+  missuppfattning, en förväxling med ett närliggande begrepp, en omkastad
+  implikation, en rätt formel med fel operator eller fel villkor.
+- Hur nära rätt svar distraktorerna ska ligga styrs av svårighetsnivån som
+  anges sist i prompten. Följ den nivån.
+- Ingen distraktor får vara uppenbart orimlig eller gå att sålla bort utan
+  ämneskunskap. Om du kan stryka ett alternativ enbart på formen, skriv om det.
+
+### Sista kontrollen
+
+Innan du returnerar JSON, gå igenom varje fråga och fråga dig: skulle någon som
+inte läst kursen kunna peka ut rätt svar på längd, detaljnivå, tonfall eller
+ordval? Om ja, skriv om alternativen.
 
 ## Matematikformat
 
@@ -78,3 +123,42 @@ Du skapar flervalsquiz på svenska utifrån kursmaterial.
 
 - Skriv på svenska.
 `;
+
+/**
+ * Difficulty only moves the cognitive demand: what the question asks for, and
+ * how close the distractors sit to the correct answer. It deliberately says
+ * nothing about option length or form — those rules live in the base prompt and
+ * apply at every level, because they exist to stop a student guessing on shape
+ * rather than to make the quiz hard. An easy quiz should still be unguessable
+ * without knowing the material; it should just ask for less.
+ */
+export const QUIZ_DIFFICULTY_PROMPTS: Record<QuizDifficulty, string> = {
+  easy: `
+## Svårighetsnivå: lätt
+
+- Fråga om centrala definitioner, grundbegrepp och huvudresultat — sådant som står tydligt i kursmaterialet.
+- Håll varje fråga kort och konkret, och testa en enda sak i taget.
+- Det ska räcka att ha förstått begreppet; frågan får inte kräva att man kombinerar flera delar av kursen.
+- Distraktorerna ska vara klart skilda begrepp, inte snarlika varianter av rätt svar. En student som kan begreppet ska kunna sålla bort dem direkt.
+- Ingen fråga får handla om undantag, gränsfall eller finstilta villkor.
+- Alternativen ska fortfarande vara lika långa, parallellt formulerade och rimliga vid en snabb blick — lätt betyder enklare fråga, inte slarvigare alternativ.
+`,
+  medium: `
+## Svårighetsnivå: medel
+
+- Fråga om definitioner, principer, tolkningar och samband — inte bara igenkänning av ord.
+- Rätt svar ska kräva att man förstått begreppet, inte bara sett det.
+- Ungefär hälften av frågorna får handla om ren begreppsförståelse, hälften om tolkning och tillämpning.
+- Låt en distraktor ligga nära rätt svar: sann i ett specialfall, eller korrekt så när som på ett villkor. Övriga två ska vara tydligare fel.
+- Enstaka frågor får röra vanliga missuppfattningar, men undvik rena gränsfall.
+`,
+  hard: `
+## Svårighetsnivå: svår
+
+- Fråga om antaganden, villkor, gränsfall och när ett resultat inte gäller.
+- Låt frågorna skilja närliggande begrepp åt som studenter ofta blandar ihop.
+- Bygg gärna på klassiska tentafällor inom kursen.
+- Låt två distraktorer ligga nära rätt svar — korrekta så när som på ett villkor, en riktning eller ett ord — så att man måste kunna detaljen för att välja rätt.
+- Frågan ska ändå ha exakt ett otvetydigt korrekt svar. Svårigheten ska ligga i ämnet, aldrig i att frågan är oklart ställd eller att formuleringen lurar.
+`,
+};
