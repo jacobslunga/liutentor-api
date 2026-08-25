@@ -1,5 +1,5 @@
 import { supabase } from "~/db/supabase";
-import type { MultipleChoiceQuiz } from "./quiz.schemas";
+import type { MultipleChoiceQuiz, QuizDifficulty } from "./quiz.schemas";
 
 /**
  * Logs a generated quiz to the database for history and scorekeeping.
@@ -14,6 +14,7 @@ export async function logQuizGeneration(payload: {
   source_exam_ids: number[];
   source_count: number;
   model: string;
+  difficulty: QuizDifficulty;
 }): Promise<void> {
   supabase
     .from("ai_quiz_logs")
@@ -26,6 +27,7 @@ export async function logQuizGeneration(payload: {
       source_exam_ids: payload.source_exam_ids,
       source_count: payload.source_count,
       model: payload.model,
+      difficulty: payload.difficulty,
     })
     .then(({ error }) => {
       if (error) {

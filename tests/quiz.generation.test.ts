@@ -4,6 +4,11 @@ import {
   QUIZ_MODEL,
   QUIZ_THINKING_LEVEL,
 } from "../src/api/v1/quiz.route";
+import {
+  QUIZ_DIFFICULTY_PROMPTS,
+  QUIZ_MULTIPLE_CHOICE_PROMPT,
+} from "../src/utils/prompts";
+import { quizDifficultySchema } from "../src/api/v1/quiz.schemas";
 
 describe("Gemini quiz generation", () => {
   it("uses PDF input, structured JSON, and high thinking", async () => {
@@ -62,5 +67,36 @@ describe("Gemini quiz generation", () => {
     await expect(
       generateQuizFromGemini([], "Prompt", invalid as any),
     ).rejects.toThrow();
+  });
+});
+
+describe("quiz difficulty prompts", () => {
+  const tiers = quizDifficultySchema.options;
+
+  it("has a distinct block for every difficulty the API accepts", () => {
+    const blocks = tiers.map((tier) => QUIZ_DIFFICULTY_PROMPTS[tier]);
+
+    for (const block of blocks) {
+      expect(block.trim().length).toBeGreaterThan(0);
+    }
+    expect(new Set(blocks).size).toBe(tiers.length);
+  });
+
+  it("names its own level so the model cannot mix two tiers up", () => {
+    expect(QUIZ_DIFFICULTY_PROMPTS.easy).toContain("Svårighetsnivå: lätt");
+    expect(QUIZ_DIFFICULTY_PROMPTS.medium).toContain("Svårighetsnivå: medel");
+    expect(QUIZ_DIFFICULTY_PROMPTS.hard).toContain("Svårighetsnivå: svår");
+  });
+
+  it("leaves option length and form to the base prompt only", () => {
+    // Difficulty must change what is asked, never how the options look — the
+    // parity rules are what stop a student guessing on shape, so a tier that
+    // relaxed them would quietly bring the "longest answer wins" tell back.
+    expect(QUIZ_MULTIPLE_CHOICE_PROMPT).toContain("### Längd");
+
+    for (const tier of tiers) {
+      expect(QUIZ_DIFFICULTY_PROMPTS[tier]).not.toContain("### Längd");
+      expect(QUIZ_DIFFICULTY_PROMPTS[tier]).not.toMatch(/25 %/);
+    }
   });
 });
